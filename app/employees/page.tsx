@@ -1,12 +1,14 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Users, Search, Plus, Mail, Phone, MapPin, Calendar, Building2, ArrowLeft } from "lucide-react"
+import { RouteGuard, AccessControl, useDataFilter, useAuditLog } from "@/components/AccessControl"
+import { useAuth } from "@/contexts/AuthContext"
+import { Users, Search, Plus, Mail, Phone, MapPin, Calendar, Building2, ArrowLeft, Shield } from "lucide-react"
 import Link from "next/link"
 
 // Mock employee data
@@ -22,6 +24,8 @@ const mockEmployees = [
     joinDate: "2022-03-15",
     status: "Active",
     avatar: "/placeholder.svg?height=40&width=40",
+    salary: 95000,
+    personalDetails: { ssn: "***-**-1234", address: "123 Main St, NY" },
   },
   {
     id: "2",
@@ -34,6 +38,8 @@ const mockEmployees = [
     joinDate: "2021-08-22",
     status: "Active",
     avatar: "/placeholder.svg?height=40&width=40",
+    salary: 85000,
+    personalDetails: { ssn: "***-**-5678", address: "456 Oak Ave, SF" },
   },
   {
     id: "3",
@@ -46,6 +52,8 @@ const mockEmployees = [
     joinDate: "2023-01-10",
     status: "Active",
     avatar: "/placeholder.svg?height=40&width=40",
+    salary: 105000,
+    personalDetails: { ssn: "***-**-9012", address: "789 Pine St, Seattle" },
   },
   {
     id: "4",
@@ -58,6 +66,8 @@ const mockEmployees = [
     joinDate: "2022-11-05",
     status: "Active",
     avatar: "/placeholder.svg?height=40&width=40",
+    salary: 75000,
+    personalDetails: { ssn: "***-**-3456", address: "321 Elm St, Austin" },
   },
   {
     id: "5",
@@ -70,18 +80,32 @@ const mockEmployees = [
     joinDate: "2020-06-18",
     status: "On Leave",
     avatar: "/placeholder.svg?height=40&width=40",
+    salary: 120000,
+    personalDetails: { ssn: "***-**-7890", address: "654 Maple Ave, Chicago" },
   },
 ]
 
-export default function EmployeesPage() {
+function EmployeesPageContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [departmentFilter, setDepartmentFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
+  const { user, hasPermission } = useAuth()
+  const { filterEmployeeData } = useDataFilter()
+  const { logAccess } = useAuditLog()
+
+  const filteredEmployeeData = filterEmployeeData(mockEmployees)
+
+  useEffect(() => {
+    logAccess("employees", "view_list", {
+      searchTerm: searchTerm || "none",
+      filters: { department: departmentFilter, status: statusFilter },
+    })
+  }, [searchTerm, departmentFilter, statusFilter, logAccess])
 
   const departments = ["Engineering", "Human Resources", "Product", "Design", "Sales"]
   const statuses = ["Active", "On Leave", "Inactive"]
 
-  const filteredEmployees = mockEmployees.filter((employee) => {
+  const filteredEmployees = filteredEmployeeData.filter((employee) => {
     const matchesSearch =
       employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -110,15 +134,19 @@ export default function EmployeesPage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Employee Management</h1>
-                <p className="text-xs text-gray-500">Manage your workforce</p>
+                <p className="text-xs text-gray-500">
+                  Manage your workforce • Role: {user?.role} • Access Level: {hasPermission("all") ? "Full" : "Limited"}
+                </p>
               </div>
             </div>
-            <Link href="/employees/add">
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Employee
-              </Button>
-            </Link>
+            <AccessControl requiredPermission={["employees", "all"]}>
+              <Link href="/employees/add">
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Employee
+                </Button>
+              </Link>
+            </AccessControl>
           </div>
         </div>
       </header>
@@ -131,7 +159,7 @@ export default function EmployeesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Employees</p>
-                  <p className="text-3xl font-bold text-gray-900">{mockEmployees.length}</p>
+                  <p className="text-3xl font-bold text-gray-900">{filteredEmployees.length}</p>
                 </div>
                 <Users className="w-8 h-8 text-blue-600" />
               </div>
@@ -143,7 +171,7 @@ export default function EmployeesPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Active</p>
                   <p className="text-3xl font-bold text-green-600">
-                    {mockEmployees.filter((emp) => emp.status === "Active").length}
+                    {filteredEmployees.filter((emp) => emp.status === "Active").length}
                   </p>
                 </div>
                 <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
@@ -158,7 +186,7 @@ export default function EmployeesPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">On Leave</p>
                   <p className="text-3xl font-bold text-orange-600">
-                    {mockEmployees.filter((emp) => emp.status === "On Leave").length}
+                    {filteredEmployees.filter((emp) => emp.status === "On Leave").length}
                   </p>
                 </div>
                 <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -234,7 +262,15 @@ export default function EmployeesPage() {
         {/* Employee List */}
         <Card>
           <CardHeader>
-            <CardTitle>Employees ({filteredEmployees.length})</CardTitle>
+            <CardTitle className="flex items-center space-x-2">
+              <span>Employees ({filteredEmployees.length})</span>
+              {!hasPermission("all") && (
+                <Badge variant="outline" className="text-xs">
+                  <Shield className="w-3 h-3 mr-1" />
+                  Limited Access
+                </Badge>
+              )}
+            </CardTitle>
             <CardDescription>Complete list of all employees</CardDescription>
           </CardHeader>
           <CardContent>
@@ -268,6 +304,13 @@ export default function EmployeesPage() {
                         >
                           {employee.status}
                         </Badge>
+                        <AccessControl requiredPermission={["payroll", "all"]} showFallback={false}>
+                          {employee.salary && (
+                            <Badge variant="outline" className="text-xs">
+                              ${employee.salary.toLocaleString()}
+                            </Badge>
+                          )}
+                        </AccessControl>
                       </div>
                       <p className="text-sm text-gray-600 mb-1">
                         {employee.position} • {employee.department}
@@ -277,10 +320,12 @@ export default function EmployeesPage() {
                           <Mail className="w-3 h-3" />
                           <span>{employee.email}</span>
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <Phone className="w-3 h-3" />
-                          <span>{employee.phone}</span>
-                        </div>
+                        {employee.phone && (
+                          <div className="flex items-center space-x-1">
+                            <Phone className="w-3 h-3" />
+                            <span>{employee.phone}</span>
+                          </div>
+                        )}
                         <div className="flex items-center space-x-1">
                           <MapPin className="w-3 h-3" />
                           <span>{employee.location}</span>
@@ -302,5 +347,13 @@ export default function EmployeesPage() {
         </Card>
       </main>
     </div>
+  )
+}
+
+export default function EmployeesPage() {
+  return (
+    <RouteGuard requiredPermission={["employees", "all", "profile"]}>
+      <EmployeesPageContent />
+    </RouteGuard>
   )
 }

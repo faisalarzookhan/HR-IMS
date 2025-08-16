@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +9,13 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import RealtimeDataWidget from "@/components/RealtimeDataWidget"
+import { LanguageToggle } from "@/components/LanguageToggle"
+import FloatingNavigation from "@/components/FloatingNavigation"
+import BreadcrumbNavigation from "@/components/BreadcrumbNavigation"
+import QuickSearch from "@/components/QuickSearch"
+import { useLanguage } from "@/contexts/LanguageContext"
+import { useAuth } from "@/contexts/AuthContext"
+import { useOrganization } from "@/components/OrganizationProvider"
 import {
   Users,
   Calendar,
@@ -22,11 +28,19 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  UserPlus,
+  DollarSign,
+  Award,
+  Monitor,
+  Settings,
+  RefreshCw,
 } from "lucide-react"
 import Link from "next/link"
 
 export default function HomePage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const { t, language } = useLanguage()
+  const { user, login, logout, isAuthenticated, hasPermission } = useAuth()
+  const { data: orgData, refreshData, isLoading } = useOrganization()
   const [showPassword, setShowPassword] = useState(false)
   const [loginForm, setLoginForm] = useState({ email: "", password: "" })
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -38,10 +52,7 @@ export default function HomePage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    // Demo authentication - accept any email/password
-    if (loginForm.email && loginForm.password) {
-      setIsAuthenticated(true)
-    }
+    login(loginForm.email, loginForm.password)
   }
 
   const demoAccounts = [
@@ -49,6 +60,26 @@ export default function HomePage() {
     { role: "HR Manager", email: "hr@limitless.com", password: "hr123" },
     { role: "Employee", email: "employee@limitless.com", password: "emp123" },
   ]
+
+  const getQuickActions = () => {
+    const actions = [
+      { href: "/employees", icon: Users, label: t("nav.employees"), permission: "employees" },
+      { href: "/recruitment", icon: UserPlus, label: t("nav.recruitment"), permission: "recruitment" },
+      { href: "/payroll", icon: DollarSign, label: t("nav.payroll"), permission: "payroll" },
+      { href: "/evaluation", icon: Award, label: t("nav.evaluation"), permission: "evaluation" },
+      {
+        href: "/assets",
+        icon: Monitor,
+        label: t("nav.assets"),
+        permission: user?.role === "employee" ? "assets_view" : "assets",
+      },
+      { href: "/admin", icon: Settings, label: "Admin", permission: "all" },
+      { href: "/attendance", icon: Clock, label: t("nav.attendance"), permission: "attendance" },
+      { href: "/notifications", icon: Bell, label: t("nav.notifications"), permission: "notifications" },
+    ]
+
+    return actions.filter((action) => hasPermission(action.permission))
+  }
 
   if (!isAuthenticated) {
     return (
@@ -126,9 +157,9 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen bg-gray-50 ${language === "ar" ? "rtl" : "ltr"} pb-24`}>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
@@ -140,16 +171,41 @@ export default function HomePage() {
                 <p className="text-xs text-gray-500">HR Management System</p>
               </div>
             </div>
+
+            <div className="hidden md:block">
+              <QuickSearch />
+            </div>
+
             <div className="flex items-center space-x-4">
+              <LanguageToggle />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshData}
+                disabled={isLoading}
+                className="flex items-center space-x-2 bg-transparent"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">Welcome, Admin</p>
-                <p className="text-xs text-gray-500">{currentTime.toLocaleTimeString()}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {t("dashboard.welcome")}, {user?.name}
+                </p>
+                <p className="text-xs text-gray-500 capitalize">
+                  {user?.role} • {currentTime.toLocaleTimeString()}
+                </p>
               </div>
               <Avatar>
-                <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                <AvatarFallback>AD</AvatarFallback>
+                <AvatarImage src={user?.avatar || "/placeholder.svg?height=32&width=32"} />
+                <AvatarFallback>
+                  {user?.name
+                    ?.split(" ")
+                    .map((n) => n[0])
+                    .join("") || "U"}
+                </AvatarFallback>
               </Avatar>
-              <Button variant="outline" size="sm" onClick={() => setIsAuthenticated(false)}>
+              <Button variant="outline" size="sm" onClick={logout}>
                 Logout
               </Button>
             </div>
@@ -159,11 +215,15 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <BreadcrumbNavigation />
+
         {/* Real-time Data Widgets */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Real-time Monitoring</h2>
-          <RealtimeDataWidget />
-        </div>
+        {hasPermission("all") && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Real-time Monitoring</h2>
+            <RealtimeDataWidget />
+          </div>
+        )}
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -171,8 +231,8 @@ export default function HomePage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Employees</p>
-                  <p className="text-3xl font-bold text-gray-900">247</p>
+                  <p className="text-sm font-medium text-gray-600">{t("dashboard.totalEmployees")}</p>
+                  <p className="text-3xl font-bold text-gray-900">{orgData.totalEmployees}</p>
                   <p className="text-xs text-green-600 flex items-center mt-1">
                     <TrendingUp className="w-3 h-3 mr-1" />
                     +12 this month
@@ -190,10 +250,10 @@ export default function HomePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Present Today</p>
-                  <p className="text-3xl font-bold text-gray-900">234</p>
+                  <p className="text-3xl font-bold text-gray-900">{orgData.presentToday}</p>
                   <p className="text-xs text-green-600 flex items-center mt-1">
                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                    94.7% attendance
+                    {((orgData.presentToday / orgData.totalEmployees) * 100).toFixed(1)}% attendance
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -203,29 +263,31 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Leave Requests</p>
-                  <p className="text-3xl font-bold text-gray-900">18</p>
-                  <p className="text-xs text-orange-600 flex items-center mt-1">
-                    <Clock className="w-3 h-3 mr-1" />8 pending approval
-                  </p>
+          {hasPermission("leave") && (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">{t("dashboard.pendingLeaves")}</p>
+                    <p className="text-3xl font-bold text-gray-900">{orgData.pendingLeaves}</p>
+                    <p className="text-xs text-orange-600 flex items-center mt-1">
+                      <Clock className="w-3 h-3 mr-1" />8 pending approval
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-orange-600" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-orange-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Notifications</p>
-                  <p className="text-3xl font-bold text-gray-900">5</p>
+                  <p className="text-sm font-medium text-gray-600">{t("nav.notifications")}</p>
+                  <p className="text-3xl font-bold text-gray-900">{orgData.notifications}</p>
                   <p className="text-xs text-red-600 flex items-center mt-1">
                     <AlertCircle className="w-3 h-3 mr-1" />2 urgent
                   </p>
@@ -246,118 +308,103 @@ export default function HomePage() {
               <CardDescription>Frequently used HR operations</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-4">
-              <Link href="/employees">
-                <Button variant="outline" className="h-20 flex-col space-y-2 bg-transparent w-full">
-                  <Users className="w-6 h-6" />
-                  <span>Manage Employees</span>
-                </Button>
-              </Link>
-              <Link href="/leave">
-                <Button variant="outline" className="h-20 flex-col space-y-2 bg-transparent w-full">
-                  <Calendar className="w-6 h-6" />
-                  <span>Manage Leave</span>
-                </Button>
-              </Link>
-              <Link href="/attendance">
-                <Button variant="outline" className="h-20 flex-col space-y-2 bg-transparent w-full">
-                  <Clock className="w-6 h-6" />
-                  <span>Attendance</span>
-                </Button>
-              </Link>
-              <Link href="/notifications">
-                <Button variant="outline" className="h-20 flex-col space-y-2 bg-transparent w-full">
-                  <Bell className="w-6 h-6" />
-                  <span>Notifications</span>
-                </Button>
-              </Link>
+              {getQuickActions().map((action) => {
+                const Icon = action.icon
+                return (
+                  <Link key={action.href} href={action.href}>
+                    <Button variant="outline" className="h-20 flex-col space-y-2 bg-transparent w-full">
+                      <Icon className="w-6 h-6" />
+                      <span>{action.label}</span>
+                    </Button>
+                  </Link>
+                )
+              })}
             </CardContent>
           </Card>
 
+          {/* Recent Activity */}
           <Card>
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
               <CardDescription>Latest updates and changes</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">John Doe checked in</p>
-                  <p className="text-xs text-gray-500">2 minutes ago</p>
+              {orgData.recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-center space-x-3">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      activity.type === "attendance"
+                        ? "bg-green-500"
+                        : activity.type === "leave"
+                          ? "bg-blue-500"
+                          : activity.type === "employee"
+                            ? "bg-orange-500"
+                            : "bg-purple-500"
+                    }`}
+                  ></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{activity.message}</p>
+                    <p className="text-xs text-gray-500">{activity.time}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Leave request approved</p>
-                  <p className="text-xs text-gray-500">15 minutes ago</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">New employee added</p>
-                  <p className="text-xs text-gray-500">1 hour ago</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">System backup completed</p>
-                  <p className="text-xs text-gray-500">3 hours ago</p>
-                </div>
-              </div>
+              ))}
             </CardContent>
           </Card>
         </div>
 
-        {/* Pending Tasks */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Tasks</CardTitle>
-            <CardDescription>Items requiring your attention</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                    High
-                  </Badge>
-                  <span className="font-medium">Review leave requests (8 pending)</span>
+        {/* Pending Tasks - Only for HR and Admin */}
+        {(hasPermission("leave") || hasPermission("all")) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Tasks</CardTitle>
+              <CardDescription>Items requiring your attention</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                      High
+                    </Badge>
+                    <span className="font-medium">Review leave requests (8 pending)</span>
+                  </div>
+                  <Link href="/leave">
+                    <Button size="sm">Review</Button>
+                  </Link>
                 </div>
-                <Link href="/leave">
-                  <Button size="sm">Review</Button>
-                </Link>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                    Medium
-                  </Badge>
-                  <span className="font-medium">Update employee records (3 incomplete)</span>
-                </div>
-                <Link href="/employees">
+                {hasPermission("employees") && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                        Medium
+                      </Badge>
+                      <span className="font-medium">Update employee records (3 incomplete)</span>
+                    </div>
+                    <Link href="/employees">
+                      <Button size="sm" variant="outline">
+                        Update
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                      Low
+                    </Badge>
+                    <span className="font-medium">Generate monthly report</span>
+                  </div>
                   <Button size="sm" variant="outline">
-                    Update
+                    Generate
                   </Button>
-                </Link>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
-                    Low
-                  </Badge>
-                  <span className="font-medium">Generate monthly report</span>
                 </div>
-                <Button size="sm" variant="outline">
-                  Generate
-                </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </main>
+
+      <FloatingNavigation />
     </div>
   )
 }
