@@ -24,6 +24,8 @@ import {
   ChevronUp,
   ChevronDown,
   Building2,
+  BarChart3,
+  Folder,
 } from "lucide-react"
 
 interface NavItem {
@@ -69,6 +71,14 @@ export default function FloatingNavigation() {
     },
     { href: "/profile", icon: User, label: t("nav.profile"), permission: "profile", shortcut: "0" },
   ]
+
+  if (hasPermission("projects") || hasPermission("all") || hasPermission("hr")) {
+    navItems.splice(9, 0, { href: "/projects", icon: Folder, label: "Projects", permission: "projects" })
+  }
+
+  if (hasPermission("analytics") || hasPermission("all") || hasPermission("hr")) {
+    navItems.splice(9, 0, { href: "/analytics", icon: BarChart3, label: "Analytics", permission: "analytics" })
+  }
 
   if (hasPermission("all") || hasPermission("hr")) {
     navItems.push({ href: "/organization", icon: Building2, label: "Organization", permission: "hr" })

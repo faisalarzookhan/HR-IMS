@@ -108,6 +108,8 @@ export function AccessControl({ children, requiredPermission, fallback, showFall
   return <>{children}</>
 }
 
+export const ProtectedRoute = RouteGuard
+
 // Data filtering utility
 export function useDataFilter() {
   const { user, hasPermission } = useAuth()

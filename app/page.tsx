@@ -34,6 +34,10 @@ import {
   Monitor,
   Settings,
   RefreshCw,
+  Menu,
+  X,
+  Folder,
+  BarChart3,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -44,6 +48,7 @@ export default function HomePage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loginForm, setLoginForm] = useState({ email: "", password: "" })
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -76,6 +81,8 @@ export default function HomePage() {
       { href: "/admin", icon: Settings, label: "Admin", permission: "all" },
       { href: "/attendance", icon: Clock, label: t("nav.attendance"), permission: "attendance" },
       { href: "/notifications", icon: Bell, label: t("nav.notifications"), permission: "notifications" },
+      { href: "/projects", icon: Folder, label: "Projects", permission: "projects" },
+      { href: "/analytics", icon: BarChart3, label: "Analytics", permission: "analytics" },
     ]
 
     return actions.filter((action) => hasPermission(action.permission))
@@ -176,40 +183,76 @@ export default function HomePage() {
               <QuickSearch />
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 md:space-x-4">
               <LanguageToggle />
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={refreshData}
-                disabled={isLoading}
-                className="flex items-center space-x-2 bg-transparent"
+                className="md:hidden"
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
               >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-                <span className="hidden sm:inline">Refresh</span>
+                {showMobileMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
               </Button>
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {t("dashboard.welcome")}, {user?.name}
-                </p>
-                <p className="text-xs text-gray-500 capitalize">
-                  {user?.role} • {currentTime.toLocaleTimeString()}
-                </p>
+              <div className="hidden md:flex items-center space-x-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshData}
+                  disabled={isLoading}
+                  className="flex items-center space-x-2 bg-transparent"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900">
+                    {t("dashboard.welcome")}, {user?.name}
+                  </p>
+                  <p className="text-xs text-gray-500 capitalize">
+                    {user?.role} • {currentTime.toLocaleTimeString()}
+                  </p>
+                </div>
+                <Avatar>
+                  <AvatarImage src={user?.avatar || "/placeholder.svg?height=32&width=32"} />
+                  <AvatarFallback>
+                    {user?.name
+                      ?.split(" ")
+                      .map((n) => n[0])
+                      .join("") || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <Button variant="outline" size="sm" onClick={logout}>
+                  Logout
+                </Button>
               </div>
-              <Avatar>
-                <AvatarImage src={user?.avatar || "/placeholder.svg?height=32&width=32"} />
-                <AvatarFallback>
-                  {user?.name
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("") || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <Button variant="outline" size="sm" onClick={logout}>
-                Logout
-              </Button>
             </div>
           </div>
+
+          {showMobileMenu && (
+            <div className="md:hidden border-t bg-white py-4 space-y-4">
+              <QuickSearch />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Avatar>
+                    <AvatarImage src={user?.avatar || "/placeholder.svg?height=32&width=32"} />
+                    <AvatarFallback>
+                      {user?.name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("") || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={logout}>
+                  Logout
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -226,7 +269,7 @@ export default function HomePage() {
         )}
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -301,24 +344,29 @@ export default function HomePage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-8">
           <Card>
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
               <CardDescription>Frequently used HR operations</CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
-              {getQuickActions().map((action) => {
-                const Icon = action.icon
-                return (
-                  <Link key={action.href} href={action.href}>
-                    <Button variant="outline" className="h-20 flex-col space-y-2 bg-transparent w-full">
-                      <Icon className="w-6 h-6" />
-                      <span>{action.label}</span>
-                    </Button>
-                  </Link>
-                )
-              })}
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {getQuickActions()
+                .slice(0, 8)
+                .map((action) => {
+                  const Icon = action.icon
+                  return (
+                    <Link key={action.href} href={action.href}>
+                      <Button
+                        variant="outline"
+                        className="h-16 md:h-20 flex-col space-y-2 bg-transparent w-full text-xs md:text-sm"
+                      >
+                        <Icon className="w-5 h-5 md:w-6 md:h-6" />
+                        <span>{action.label}</span>
+                      </Button>
+                    </Link>
+                  )
+                })}
             </CardContent>
           </Card>
 
